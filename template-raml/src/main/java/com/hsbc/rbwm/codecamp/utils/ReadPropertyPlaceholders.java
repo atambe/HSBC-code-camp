@@ -18,7 +18,6 @@ public class ReadPropertyPlaceholders {
 			
 			String filename = "template.properties";
 			input = getClass().getClassLoader().getResourceAsStream(filename);
-			System.out.println("input"+ input);
 			if (input == null) {
 				return httpsStatus;
 			}
@@ -27,10 +26,8 @@ public class ReadPropertyPlaceholders {
 			while (e.hasMoreElements()) {
 				String key = (String) e.nextElement();
 				String value = prop.getProperty(key);
-				System.out.println("key:"+key+"value:"+value);
 				if (Arrays.asList(value.split(",")).contains(reasonCode) && key.matches("\\d{3}")) {
 					httpsStatus = Integer.parseInt(key);
-					System.out.println("Inside if block: httpsStatus"+ httpsStatus);
 				}
 
 			}
@@ -43,7 +40,7 @@ public class ReadPropertyPlaceholders {
 				try {
 					input.close();
 				} catch (IOException e) {
-					e.printStackTrace();
+					
 					return httpsStatus;
 				}
 			}
@@ -52,4 +49,36 @@ public class ReadPropertyPlaceholders {
 
 	}
 
+	
+	
+	
+	public String getErrorDescription(String reasonCode){
+		Properties prop = new Properties();
+		InputStream input = null;
+		String errorDescription = "Internal Server Error";
+		try {
+			
+			String filename = "template.properties";
+			input = getClass().getClassLoader().getResourceAsStream(filename);
+			if (input == null) {
+				return errorDescription;
+			}
+			prop.load(input);
+			errorDescription = prop.getProperty(reasonCode);
+		} catch (IOException ex) {
+			
+			return errorDescription;
+		} finally {
+			if (input != null) {
+				try {
+					input.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+					return errorDescription;
+				}
+			}
+		}
+		return errorDescription;
+
+	}
 }

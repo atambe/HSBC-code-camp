@@ -143,8 +143,8 @@ public class InBoundConverter {
 			return null;
 		String response = data.substring(18, 38);
 		if (this.isNull(response))
-			response = null;
-		return response;
+			return null;
+		return response.trim();
 	}
 
 	public BigDecimal unmarshallAmount(String data) {

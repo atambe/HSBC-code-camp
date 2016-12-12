@@ -65,8 +65,8 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
     </sub-flow>
     <sub-flow name="JMS_Sub_Flow">
          <request-reply doc:name="Request-Reply">
-        	<jms:outbound-endpoint connector-ref="Active_MQ"  queue="TEMPLATE.QUEUE" doc:name="JMS"/>
-        	<jms:inbound-endpoint connector-ref="Active_MQ"  queue="TEMPLATE.QUEUE.RSP" doc:name="JMS"/>
+        	<jms:outbound-endpoint connector-ref="Active_MQ"  queue="${request.queue}" doc:name="JMS"/>
+        	<jms:inbound-endpoint connector-ref="Active_MQ"  queue="${response.queue}" doc:name="JMS"/>
         </request-reply>
       
          
@@ -80,6 +80,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
     <sub-flow name="Response_Handling_Sub_Flow">
         <logger message="#[payload.responseHeader.responseCode]" level="INFO" doc:name="Logger"/>
         <set-property propertyName="http.status" value="#[app.registry.readPropertyPlaceHolder.getHttpStatus(payload.responseHeader.reasonCode)]" doc:name="Property"/>
+        <set-variable variableName="errorDescription" value="#[app.registry.readPropertyPlaceHolder.getErrorDescription(payload.responseHeader.reasonCode)]" doc:name="Variable"/>
         <choice doc:name="Choice">
             <when expression="#['${response.success}'.contains(payload.responseHeader.responseCode)]">
                 <logger message="Success Response Returned" level="INFO" doc:name="Logger"/>
@@ -92,7 +93,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 	accountNumber: payload.responseBody.accountNumber,
 	transactionCount: payload.responseBody.transactionCount,
 	transactions: payload.responseBody.transactions map ((transaction , indexOfTransaction) -> {
-		amount: transaction.amount as :number,
+		amount: transaction.amount/100 as :number,
 		description: transaction.description,
 		menmonics: transaction.menmonics,
 		postedDate: transaction.postedDate as :date,
@@ -103,6 +104,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </when>
             <when expression="#[payload.responseHeader.responseCode=='{response.error}']">
                 <logger message="Busine Error Scenario" level="INFO" doc:name="Logger"/>
+
                 <dw:transform-message metadata:id="2fd9bc2d-460d-4b94-8607-8d398b1bae86" doc:name="Transform Message">
                     <dw:input-payload mimeType="application/java"/>
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -110,7 +112,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 ---
 {
 	errorInfo: {
-		description: "Business Error",
+		description: flowVars.errorDescription,
 		reasonCode: payload.responseHeader.reasonCode
 	}
 }]]></dw:set-payload>
@@ -118,6 +120,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </when>
             <otherwise>
                 <logger message="Error Occurred!!" level="INFO" doc:name="Logger"/>
+
                  <dw:transform-message metadata:id="2fd9bc2d-460d-4b94-8607-8d398b1bae86" doc:name="Transform Message">
                     <dw:input-payload mimeType="application/java"/>
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -125,7 +128,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 ---
 {
 	errorInfo: {
-		description: "Business Error",
+		description: flowVars.errorDescription,
 		reasonCode: payload.responseHeader.reasonCode
 	}
 }]]></dw:set-payload>

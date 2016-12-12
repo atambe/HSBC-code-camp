@@ -12,7 +12,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
      <jms:activemq-connector name="Active_MQ" brokerURL="tcp://localhost:61616" validateConnections="true" doc:name="Active MQ" specification="1.1"/>
     <flow name="jms-flow">
 		<jms:inbound-endpoint exchange-pattern="request-response"
-			queue="TEMPLATE.QUEUE" connector-ref="Active_MQ" doc:name="JMS"/>
+			queue="TEMPLATE.QUEUE.RQST" connector-ref="Active_MQ" doc:name="JMS"/>
         <choice doc:name="Choice">
             <when expression="#[payload.contains('4321')]">
                 <set-payload value="00800070071234567890123403098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR" doc:name="Set Payload"/>
