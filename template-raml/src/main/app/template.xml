@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <apikit:config name="template-config" raml="template.raml" consoleEnabled="false" doc:name="Router"/>
+    <spring:beans>
+        <spring:bean id="Bean" name="marshaller" class="com.hsbc.rbwm.codecamp.converters.OutBoundConverter"/>
+        <spring:bean id="unmarshaller" name="unmarshaller" class="com.hsbc.rbwm.codecamp.converters.InBoundConverter"/>
+        <spring:bean id="readPropertyPlaceHolder" name="readPropertyPlaceHolder" class="com.hsbc.rbwm.codecamp.utils.ReadPropertyPlaceholders"/>
+    </spring:beans>
+    <jms:activemq-connector name="Active_MQ" brokerURL="tcp://localhost:61616" validateConnections="true" doc:name="Active MQ" specification="1.1"/>
+    <flow name="template-main">
+        <http:listener config-ref="http-lc-0.0.0.0-8081" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="template-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="template-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="template-console">
+        <http:listener config-ref="http-lc-0.0.0.0-8081" path="/console/*" doc:name="HTTP"/>
+        <apikit:console config-ref="template-config" doc:name="APIkit Console"/>
+    </flow>
+    <flow name="get:/template-artifacts/{accountNumber}/templates:template-config">
+        <flow-ref name="Marshalling_Sub_Flow" doc:name="Marshalling_Sub_Flow"/>
+        <flow-ref name="JMS_Sub_Flow" doc:name="JMS Connection Flow"/>
+       <!--  <flow-ref name="ResponseJMSSub_Flow" doc:name="ResponseJMSSub_Flow"/> -->
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <flow-ref name="Unmarshalling_Sub_Flow" doc:name="Unmarshalling_Sub_Flow"/>
+        <flow-ref name="Response_Handling_Sub_Flow" doc:name="Response_Handling_Sub_Flow"/>
+       
+    
+    </flow>
+    <sub-flow name="Marshalling_Sub_Flow">
+        <dw:transform-message doc:name="Request Payload" metadata:id="b250c004-1fa1-4966-a507-c25367162263">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	accountNumber: flowVars.accountNumber
+} as :object {
+	class : "com.hsbc.rbwm.codecamp.converters.beans.RequestPayload"
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message metadata:id="cd2576a6-7c06-4307-9867-18f85a52f710" doc:name="ISM Header">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	header: {
+		operationId: p('request.operationId'),
+		serviceId: p('request.serviceId')
+	},
+	payload: {
+		accountNumber: payload.accountNumber,
+		endDate: payload.endDate,
+		startDate: payload.startDate
+	}
+} as :object {
+	class : "com.hsbc.rbwm.codecamp.converters.beans.RetrieveTranactionRequest"
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <invoke name="marshaller" object-ref="marshaller" method="convert" doc:name="request marshaller" methodArguments="#[payload.header], #[payload.payload]"/>
+    </sub-flow>
+    <sub-flow name="JMS_Sub_Flow">
+         <request-reply doc:name="Request-Reply">
+        	<jms:outbound-endpoint connector-ref="Active_MQ"  queue="TEMPLATE.QUEUE" doc:name="JMS"/>
+        	<jms:inbound-endpoint connector-ref="Active_MQ"  queue="TEMPLATE.QUEUE.RSP" doc:name="JMS"/>
+        </request-reply>
+      
+         
+    </sub-flow>
+
+	
+  
+    <sub-flow name="Unmarshalling_Sub_Flow">
+        <invoke name="unmarshall" object-ref="unmarshaller" method="unmarshall" doc:name="Unmarshaller" methodArguments="#[payload]"/>
+    </sub-flow>
+    <sub-flow name="Response_Handling_Sub_Flow">
+        <logger message="#[payload.responseHeader.responseCode]" level="INFO" doc:name="Logger"/>
+        <set-property propertyName="http.status" value="#[app.registry.readPropertyPlaceHolder.getHttpStatus(payload.responseHeader.reasonCode)]" doc:name="Property"/>
+        <choice doc:name="Choice">
+            <when expression="#['${response.success}'.contains(payload.responseHeader.responseCode)]">
+                <logger message="Success Response Returned" level="INFO" doc:name="Logger"/>
+                <dw:transform-message doc:name="Transform Message" metadata:id="c5aafe5f-968c-4508-8ebf-dfec25b19f35">
+                    <dw:input-payload mimeType="application/java"/>
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	accountNumber: payload.responseBody.accountNumber,
+	transactionCount: payload.responseBody.transactionCount,
+	transactions: payload.responseBody.transactions map ((transaction , indexOfTransaction) -> {
+		amount: transaction.amount as :number,
+		description: transaction.description,
+		menmonics: transaction.menmonics,
+		postedDate: transaction.postedDate as :date,
+		transactionId: transaction.transactionId
+	})
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <when expression="#[payload.responseHeader.responseCode=='{response.error}']">
+                <logger message="Busine Error Scenario" level="INFO" doc:name="Logger"/>
+                <dw:transform-message metadata:id="2fd9bc2d-460d-4b94-8607-8d398b1bae86" doc:name="Transform Message">
+                    <dw:input-payload mimeType="application/java"/>
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	errorInfo: {
+		description: "Business Error",
+		reasonCode: payload.responseHeader.reasonCode
+	}
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <logger message="Error Occurred!!" level="INFO" doc:name="Logger"/>
+                 <dw:transform-message metadata:id="2fd9bc2d-460d-4b94-8607-8d398b1bae86" doc:name="Transform Message">
+                    <dw:input-payload mimeType="application/java"/>
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	errorInfo: {
+		description: "Business Error",
+		reasonCode: payload.responseHeader.reasonCode
+	}
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <apikit:mapping-exception-strategy name="template-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+</mule>

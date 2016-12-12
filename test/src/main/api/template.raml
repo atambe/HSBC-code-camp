@@ -1,0 +1,175 @@
+#%RAML 0.8
+baseUri: http://mocksvc.mulesoft.com/mocks/543d4d1e-ae53-42ad-852d-2399643d4702
+title: template-artifact
+version: 1.0.0
+
+schemas: 
+- template-schema: |
+           {
+              "$schema": "http://json-schema.org/draft-04/schema#",
+              "type": "object",
+              "properties": {
+                "accountNumber": {
+                  "type": "string"
+                },
+                "transactionCount": {
+                  "type": "integer"
+                },
+                "transactions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "transactionId": {
+                        "type": "string"
+                      },
+                      "postedDate": {
+                        "type": "integer"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "amount": {
+                        "type": "integer"
+                      },
+                      "menmonics": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "transactionId",
+                      "postedDate",
+                      "description",
+                      "amount",
+                      "menmonics"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "accountNumber",
+                "transactionCount",
+                "transactions"
+              ]
+            }
+
+- error-schema: |
+    {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "type": "object",
+          "properties": {
+            "errorInfo": {
+              "type": "object",
+              "properties": {
+                "reasonCode": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reasonCode",
+                "description"
+              ]
+            }
+          },
+          "required": [
+            "errorInfo"
+          ]
+        }
+    
+/template-artifacts/{accountNumber}/templates:
+  displayName: Current account transactions
+  description: All the transacations will be returned as a list for particular account
+  
+  uriParameters:
+    accountNumber:
+      displayName: Path param
+      description: Denotes the path parameter
+      type: string
+      maxLength: 14
+      minLength: 1
+      pattern: ^([0-9])*$
+  get:
+    responses:
+      200:
+        body:
+          application/json:
+            schema: template-schema
+            example: |
+              {
+                  "accountNumber": "12345678901234",
+                  "transactionCount": 3,
+                  "transactions": [
+                    {
+                      "transactionId": "0987654321",
+                      "postedDate": 1451154600000,
+                      "description": "TOACCXXX3707 DR     ",
+                      "amount": 3000,
+                      "menmonics": "CR"
+                    },
+                    {
+                      "transactionId": "0987654321",
+                      "postedDate": 1451154600000,
+                      "description": "TOACCXXX3707 DR     ",
+                      "amount": 3000,
+                      "menmonics": "CR"
+                    },
+                    {
+                      "transactionId": "0987654321",
+                      "postedDate": 1451154600000,
+                      "description": "TOACCXXX3707 DR     ",
+                      "amount": 3000,
+                      "menmonics": "CR"
+                    }
+                  ]
+                }
+      400:
+        description: Inconsistent parameters
+        body:
+          application/json:
+            schema: error-schema
+            example: |
+              {
+                "errorInfo": {
+                  "reasonCode": "2991",
+                  "description": "Stimulus Validation failed"
+                }
+              }
+      401:
+        description: Unauthorized
+        body:
+          application/json:
+            schema: error-schema
+            example: |
+              {
+                "errorInfo": {
+                  "reasonCode": "RDP401",
+                  "description": "Unauthorized to access this"
+                }
+              }
+      404:
+        description: Current Account not found
+        body:
+          application/json:
+            schema: error-schema
+            example: |
+              {
+                "errorInfo": {
+                  "reasonCode": "3313",
+                  "description": "account not found"
+                }
+              }
+      500:
+        description: Server error
+        body:
+          application/json:
+            schema: error-schema
+            example: |
+              {
+                "errorInfo": {
+                  "reasonCode": "9991",
+                  "description": "DB2 Error"
+                }
+              }

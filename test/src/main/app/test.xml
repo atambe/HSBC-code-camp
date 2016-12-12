@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    
+     <jms:activemq-connector name="Active_MQ" brokerURL="tcp://localhost:61616" validateConnections="true" doc:name="Active MQ" specification="1.1"/>
+    <flow name="jms-flow">
+		<jms:inbound-endpoint exchange-pattern="request-response"
+			queue="TEMPLATE.QUEUE" connector-ref="Active_MQ" doc:name="JMS"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload.contains('4321')]">
+                <set-payload value="00800070071234567890123403098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR" doc:name="Set Payload"/>
+            </when>
+            <when expression="#[payload.contains('7654')]">
+                <set-payload value="00800070081234567890123403098765432120161210TOACCXXX3909 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR" doc:name="Set Payload"/>
+            </when>
+            <otherwise>
+                <set-payload value="00000000001234567890123403098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR098765432120161210TOACCXXX3707 DR     00000000000300020CR" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+	</flow>
+</mule>
